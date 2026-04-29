@@ -29,13 +29,17 @@ class OrchestratorPlanner:
         High-level Goal: {goal}
         
         Decompose this goal into a sequence of structured tasks.
-        Available tools: {', '.join(self.available_tools)}
-        
-        For each task, specify:
-        1. tool_name: One of the available tools.
-        2. task_type: A descriptive string.
-        3. input_data: A JSON object matching the expected schema for that tool.
-        4. depends_on_index: (Optional) The index of the task this task depends on (0-based).
+        Available tools and their expected input keys:
+        1. trend_discovery: {{ "niche": str, "limit": int }} -> returns {{ "trends": [{{ "title": str, "summary": str, "relevance_score": float }}] }}
+        2. script_generation: {{ "trend_item": object, "platform": str }} -> returns {{ "hook": str, "body": str, "cta": str }}
+        3. voiceover_generation: {{ "text": str }} -> returns {{ "audio_url": str, "duration": float }}
+        4. video_rendering: {{ "script": object, "voiceover_url": str }} -> returns {{ "video_url": str }}
+        5. social_publishing: {{ "video_url": str, "caption": str, "platforms": ["tiktok"] }} -> returns {{ "platform_ids": dict }}
+        6. quality_check: {{ "script": object }} -> returns {{ "score": float, "feedback": str }}
+
+        DYNAMIC DATA INJECTION:
+        You MUST link tasks by using the placeholder syntax "{{{{index.field}}}}" to reference the output of a previous task (0-indexed).
+        Example: If task 0 is trend_discovery, task 1 (script_generation) should use "{{{{0.trends}}}}" for its input.
         
         Return the plan as a JSON object:
         {{

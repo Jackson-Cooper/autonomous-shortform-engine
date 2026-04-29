@@ -21,19 +21,26 @@ async def trend_discovery_tool(input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         
         response = model.generate_content(prompt)
-        # Note: In production, we'd use structured output features or more robust parsing
         try:
-            # Basic cleanup if Gemini wraps in code blocks
             text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
+            # Clean up markdown code blocks
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            
+            # Robust JSON extraction: find the first [ and last ]
+            start_idx = text.find("[")
+            end_idx = text.rfind("]")
+            if start_idx != -1 and end_idx != -1:
+                text = text[start_idx:end_idx+1]
             
             trends_data = json.loads(text)
             return {"trends": trends_data}
         except Exception as e:
-            print(f"Gemini parsing error: {e}")
+            print(f"Gemini parsing error: {e}. Raw response: {response.text}")
+            # Return empty trends instead of failing entire task
+            return {"trends": []}
     
     # Fallback to a simple mock/scraper if Gemini fails or is missing
     return {

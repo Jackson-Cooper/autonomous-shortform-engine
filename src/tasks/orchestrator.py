@@ -13,43 +13,80 @@ def dispatch_tasks():
     """
     async def _run():
         async with AsyncSessionLocal() as session:
-            # Find pending tasks whose dependencies are completed
-            stmt = select(Task).where(Task.status == TaskStatus.PENDING)
-            result = await session.execute(stmt)
-            pending_tasks = result.scalars().all()
-            
-            for task in pending_tasks:
-                # Check dependencies
-                can_run = True
-                if task.depends_on:
-                    for dep_id in task.depends_on:
-                        dep_task = await session.get(Task, dep_id)
-                        if not dep_task or dep_task.status != TaskStatus.COMPLETED:
-                            can_run = False
-                            break
+            while True:
+                # Find pending tasks whose dependencies are completed
+                stmt = select(Task).where(Task.status == TaskStatus.PENDING)
+                result = await session.execute(stmt)
+                pending_tasks = result.scalars().all()
                 
-                if can_run:
-                    # Update status to running
-                    task.status = TaskStatus.RUNNING
-                    task.started_at = datetime.utcnow()
-                    await session.commit()
+                tasks_started = 0
+                for task in pending_tasks:
+                    # Check dependencies
+                    can_run = True
+                    if task.depends_on:
+                        for dep_id in task.depends_on:
+                            dep_task = await session.get(Task, dep_id)
+                            if not dep_task or dep_task.status != TaskStatus.COMPLETED:
+                                can_run = False
+                                break
                     
-                    # Execute the task
-                    try:
-                        print(f"Executing task {task.id} (tool: {task.tool_name})")
-                        # We merge previous outputs into inputs if needed, or the planner handles it
-                        # For now, let's assume inputs are complete or the tool knows where to look.
-                        output = await router.execute_task(task.tool_name, task.input_data)
+                    if can_run:
+                        tasks_started += 1
+                        # Update status to running
+                        task.status = TaskStatus.RUNNING
+                        task.started_at = datetime.utcnow()
+                        await session.commit()
                         
-                        task.output_data = output
-                        task.status = TaskStatus.COMPLETED
-                        task.completed_at = datetime.utcnow()
-                    except Exception as e:
-                        print(f"Task {task.id} failed: {e}")
-                        task.status = TaskStatus.FAILED
-                        task.error_message = str(e)
-                    
-                    await session.commit()
+                        # Execute the task
+                        try:
+                            print(f"Executing task {task.id} (tool: {task.tool_name})")
+                            
+                            # Dynamic data injection: resolve {{index.field}} from dependencies
+                            resolved_input = task.input_data.copy()
+                            
+                            async def resolve_placeholders(data):
+                                if isinstance(data, str) and data.startswith("{{") and data.endswith("}}"):
+                                    parts = data[2:-2].split(".")
+                                    if len(parts) == 2:
+                                        try:
+                                            dep_idx = int(parts[0])
+                                            field = parts[1]
+                                            # Find the task at that index in the workflow
+                                            stmt = select(Task).where(Task.workflow_id == task.workflow_id).order_by(Task.id)
+                                            res = await session.execute(stmt)
+                                            all_workflow_tasks = res.scalars().all()
+                                            if dep_idx < len(all_workflow_tasks):
+                                                dep_task = all_workflow_tasks[dep_idx]
+                                                if dep_task.output_data:
+                                                    # If the field is 'object', return the whole dict
+                                                    if field == "object":
+                                                        return dep_task.output_data
+                                                    return dep_task.output_data.get(field, data)
+                                        except:
+                                            return data
+                                elif isinstance(data, dict):
+                                    return {k: await resolve_placeholders(v) for k, v in data.items()}
+                                elif isinstance(data, list):
+                                    return [await resolve_placeholders(i) for i in data]
+                                return data
+
+                            resolved_input = await resolve_placeholders(resolved_input)
+                            
+                            output = await router.execute_task(task.tool_name, resolved_input)
+                            
+                            task.output_data = output
+                            task.status = TaskStatus.COMPLETED
+                            task.completed_at = datetime.utcnow()
+                        except Exception as e:
+                            print(f"Task {task.id} failed: {e}")
+                            task.status = TaskStatus.FAILED
+                            task.error_message = str(e)
+                        
+                        await session.commit()
+                
+                # If no tasks could be started in this loop, we might be blocked or done
+                if tasks_started == 0:
+                    break
 
             # Check if workflows are completed
             w_stmt = select(Workflow).where(Workflow.status == WorkflowStatus.RUNNING)

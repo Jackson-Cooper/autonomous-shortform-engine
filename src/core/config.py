@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
     PEXELS_API_KEY: Optional[str] = None
+    ZERNIO_API_KEY: Optional[str] = None
+    ZERNIO_TIKTOK_ACCOUNT_ID: Optional[str] = None
     
     STORAGE_PATH: str = "./storage/media"
     
