@@ -1,46 +1,60 @@
-import httpx
 import os
+import logging
 from src.core.config import settings
-from src.schemas.tasks import VoiceoverInput, VoiceoverOutput
+from src.schemas.tasks import VoiceoverInput
 from typing import Dict, Any
+from elevenlabs.client import ElevenLabs
+from moviepy.editor import AudioFileClip
+
+logger = logging.getLogger(__name__)
 
 async def voiceover_generation_tool(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    params = VoiceoverInput(**input_data)
-    
-    if not settings.ELEVENLABS_API_KEY:
-        # Mock for local testing
-        return {
-            "audio_url": "https://example.com/mock_audio.mp3",
-            "duration": 15.0
-        }
-    
-    voice_id = params.voice_id or "21m00Tcm4TlvDq8ikWAM"
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    
-    headers = {
-        "xi-api-key": settings.ELEVENLABS_API_KEY,
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "text": params.text,
-        "model_id": "eleven_monolingual_v1",
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}
-    }
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, headers=headers)
-        if response.status_code != 200:
-            raise Exception(f"ElevenLabs error: {response.text}")
+    """
+    Converts text to speech using ElevenLabs and returns the local path and duration.
+    """
+    try:
+        params = VoiceoverInput(**input_data)
+
+        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+
+        # Ensure the storage directory exists
+        output_dir = os.path.join(settings.STORAGE_PATH, "voiceovers")
+        os.makedirs(output_dir, exist_ok=True)
         
+        # Create a unique filename based on the hash of the text
         filename = f"voiceover_{hash(params.text)}.mp3"
-        filepath = os.path.join(settings.STORAGE_PATH, filename)
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        
-        with open(filepath, "wb") as f:
-            f.write(response.content)
-            
+        output_path = os.path.join(output_dir, filename)
+
+        # Call ElevenLabs API
+        # model_id "eleven_multilingual_v2" is generally recommended for better quality
+        audio_generator = client.text_to_speech.convert(
+            text=params.text,
+            voice_id=params.voice_id or "HNLnm2dLXPBSK0FmAPS0", # Default voice
+            model_id="eleven_v3",
+            output_format="mp3_44100_128",
+        )
+
+        # ElevenLabs SDK returns an iterator of bytes
+        with open(output_path, "wb") as f:
+            for chunk in audio_generator:
+                if chunk:
+                    f.write(chunk)
+
+        # Get audio duration using MoviePy
+        duration = 0.0
+        try:
+            audio_clip = AudioFileClip(output_path)
+            duration = audio_clip.duration
+            audio_clip.close()
+        except Exception as e:
+            logger.error(f"Failed to get audio duration for {output_path}: {e}")
+            duration = 15.0 # Fallback placeholder
+
         return {
-            "audio_url": filepath,
-            "duration": 15.0 # In production, use ffprobe to get actual duration
+            "audio_url": output_path,
+            "duration": duration
         }
+
+    except Exception as e:
+        logger.error(f"Voiceover generation failed: {str(e)}")
+        raise Exception(f"Voiceover generation failed: {str(e)}")
