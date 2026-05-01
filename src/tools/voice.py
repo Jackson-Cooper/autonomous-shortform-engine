@@ -26,7 +26,6 @@ async def voiceover_generation_tool(input_data: Dict[str, Any]) -> Dict[str, Any
         output_path = os.path.join(output_dir, filename)
 
         # Call ElevenLabs API
-        # model_id "eleven_multilingual_v2" is generally recommended for better quality
         audio_generator = client.text_to_speech.convert(
             text=params.text,
             voice_id=params.voice_id or "HNLnm2dLXPBSK0FmAPS0", # Default voice

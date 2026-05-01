@@ -1,10 +1,10 @@
-# 🚀 Autonomous Shortform Content Engine
+# Autonomous Shortform Content Engine
 
 An AI-powered media automation pipeline that discovers trends, generates scripts, synthesizes voiceovers, renders 9:16 vertical videos, and posts them to social media autonomously.
 
 ---
 
-## 🛠 Prerequisites
+## Prerequisites
 
 Before you begin, ensure you have the following installed:
 
@@ -16,7 +16,7 @@ Before you begin, ensure you have the following installed:
 
 ---
 
-## 📦 Installation
+## Installation
 
 1.  **Clone the Repository:**
     ```bash
@@ -42,7 +42,7 @@ Before you begin, ensure you have the following installed:
 
 ---
 
-## 🗄 Database Setup
+## Database Setup
 
 Initialize your database schema using Alembic:
 
@@ -56,7 +56,7 @@ alembic upgrade head
 
 ---
 
-## 🏃‍♂️ Running the Engine (Local Testing)
+## Running the Engine (Local Testing)
 
 The system requires three processes running simultaneously. It is recommended to use three separate terminal windows:
 
@@ -82,7 +82,7 @@ celery -A src.core.celery_app beat --loglevel=info
 
 ---
 
-## 🧪 Testing the Workflow
+## Testing the Workflow
 
 1.  **Access the Dashboard:** Open `http://localhost:8000` in your browser.
 2.  **Submit a Goal:** In the "New Goal" input, type a high-level directive:
@@ -101,7 +101,7 @@ celery -A src.core.celery_app beat --loglevel=info
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 *   `src/orchestrator`: AI Planning logic (GPT-4).
 *   `src/tasks`: Background execution and task dispatching.
