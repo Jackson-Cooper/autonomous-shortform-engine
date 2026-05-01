@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from src.core.config import settings
 
 celery_app = Celery(
@@ -15,6 +16,12 @@ celery_app.conf.update(
     enable_utc=True,
     task_routes={
         "src.tasks.orchestrator.*": {"queue": "orchestrator_queue"},
+    },
+    beat_schedule={
+        "dispatch-every-30-seconds": {
+            "task": "src.tasks.orchestrator.dispatch_tasks",
+            "schedule": 30.0,
+        },
     },
 )
 

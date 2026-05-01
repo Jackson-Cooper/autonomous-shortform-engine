@@ -32,11 +32,16 @@ def dispatch_tasks():
                     
                     if can_run:
                         tasks_started += 1
+
+                        # Update Workflow status to RUNNING if it's currently PENDING
+                        workflow = await session.get(Workflow, task.workflow_id)
+                        if workflow and workflow.status == WorkflowStatus.PENDING:
+                            workflow.status = WorkflowStatus.RUNNING
+
                         # Update status to running
                         task.status = TaskStatus.RUNNING
                         task.started_at = datetime.utcnow()
                         await session.commit()
-                        
                         # Execute the task
                         try:
                             print(f"Executing task {task.id} (tool: {task.tool_name})")

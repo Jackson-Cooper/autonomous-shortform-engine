@@ -5,7 +5,15 @@ from src.schemas.tasks import ScriptGenerationInput, ScriptGenerationOutput
 from typing import Dict, Any
 
 async def script_generation_tool(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    params = ScriptGenerationInput(**input_data)
+    trend_item = input_data.get("trend_item")
+    if isinstance(trend_item, list) and len(trend_item) > 0:
+        trend_item = trend_item[0]
+    
+    params = ScriptGenerationInput(
+        trend_item=trend_item,
+        platform=input_data.get("platform", "tiktok"),
+        tone=input_data.get("tone", "engaging")
+    )
     
     client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     

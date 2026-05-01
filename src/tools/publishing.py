@@ -35,6 +35,7 @@ async def social_publishing_tool(input_data: Dict[str, Any]) -> Dict[str, Any]:
                 "allow_stitch": False,
                 "content_preview_confirmed": True,
                 "express_consent_given": True,
+                "draft": True,
                 # video_cover_timestamp_ms is optional, if not provided TikTok will choose a default thumbnail
                 # video_cover_image_url can be provided if you want to specify a custom thumbnail, but it must be a public URL as well
                 # draft can be set to True if you want to save as draft instead of publishing immediately

@@ -29,17 +29,20 @@ class OrchestratorPlanner:
         High-level Goal: {goal}
         
         Decompose this goal into a sequence of structured tasks.
-        Available tools and their expected input keys:
-        1. trend_discovery: {{ "niche": str, "limit": int }} -> returns {{ "trends": [{{ "title": str, "summary": str, "relevance_score": float }}] }}
-        2. script_generation: {{ "trend_item": object, "platform": str }} -> returns {{ "hook": str, "body": str, "cta": str }}
-        3. voiceover_generation: {{ "text": str }} -> returns {{ "audio_url": str, "duration": float }}
-        4. video_rendering: {{ "script": object, "voiceover_url": str }} -> returns {{ "video_url": str }}
-        5. social_publishing: {{ "video_url": str, "caption": str, "platforms": ["tiktok"] }} -> returns {{ "platform_ids": dict }}
-        6. quality_check: {{ "script": object }} -> returns {{ "score": float, "feedback": str }}
+        Available tools and their expected input/output keys:
+        1. trend_discovery: { "niche": str } -> returns { "trends": [...] }
+        2. script_generation: { "trend_item": object } -> returns { "hook": str, "body": str, "cta": str }
+        3. voiceover_generation: { "text": str } -> returns { "audio_url": str }
+        4. video_rendering: { "script": object, "voiceover_url": str } -> returns { "video_url": str }
+        5. social_publishing: { "video_url": str, "caption": str } -> returns { "platform_ids": dict }
 
-        DYNAMIC DATA INJECTION:
-        You MUST link tasks by using the placeholder syntax "{{{{index.field}}}}" to reference the output of a previous task (0-indexed).
-        Example: If task 0 is trend_discovery, task 1 (script_generation) should use "{{{{0.trends}}}}" for its input.
+        LINKING TASKS:
+        - To get a script from trends: Use "{{0.trends}}" (assuming task 0 is discovery). NOTE: script_generation expects ONE trend_item, so use "{{0.trends}}" if discovery returns a list, the tool will handle picking the first or you should specify.
+        - To get audio from script: Use task {{1.hook}} and {{1.body}} combined or just "{{1.object}}" if the tool expects a script object.
+        - To get video from audio: Use "{{2.audio_url}}".
+
+        For the voiceover_generation tool, please combine hook, body and cta into a single string for the "text" input.
+
         
         Return the plan as a JSON object:
         {{
