@@ -1,0 +1,100 @@
+import json
+from typing import List, Dict, Any
+import openai
+from src.core.config import settings
+from src.models.models import Workflow, Task, TaskStatus
+from src.db.session import AsyncSessionLocal
+from src.schemas.tasks import (
+    TrendDiscoveryInput, ScriptGenerationInput, 
+    VoiceoverInput, VideoRenderInput, PublishingInput
+)
+
+class OrchestratorPlanner:
+    def __init__(self):
+        self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.available_tools = [
+            "trend_discovery",
+            "script_generation",
+            "voiceover_generation",
+            "video_rendering",
+            "social_publishing"
+        ]
+
+    async def create_workflow_plan(self, goal: str) -> int:
+        """
+        Takes a high-level goal and creates a Workflow and sequence of Tasks in the DB.
+        """
+        prompt = f"""
+        You are an AI Content Business Orchestrator. 
+        High-level Goal: {goal}
+        
+        Decompose this goal into a sequence of structured tasks.
+        Available tools and their expected input/output keys:
+        1. trend_discovery: { "niche": str } -> returns { "trends": [...] }
+        2. script_generation: { "trend_item": object } -> returns { "hook": str, "body": str, "cta": str }
+        3. voiceover_generation: { "text": str } -> returns { "audio_url": str }
+        4. video_rendering: { "script": object, "voiceover_url": str } -> returns { "video_url": str }
+        5. social_publishing: { "video_url": str, "caption": str } -> returns { "platform_ids": dict }
+
+        LINKING TASKS:
+        - To get a script from trends: Use "{{0.trends}}" (assuming task 0 is discovery). NOTE: script_generation expects ONE trend_item, so use "{{0.trends}}" if discovery returns a list, the tool will handle picking the first or you should specify.
+        - To get audio from script: Use task {{1.hook}} and {{1.body}} combined or just "{{1.object}}" if the tool expects a script object.
+        - To get video from audio: Use "{{2.audio_url}}".
+
+        For the voiceover_generation tool, please combine hook, body and cta into a single string for the "text" input.
+
+        
+        Return the plan as a JSON object:
+        {{
+            "tasks": [
+                {{
+                    "tool_name": "string",
+                    "task_type": "string",
+                    "input_data": {{}},
+                    "depends_on_index": int or null
+                }}
+            ]
+        }}
+        """
+        
+        response = await self.client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "You are an expert at breaking down business goals into automated technical workflows."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+        
+        plan_data = json.loads(response.choices[0].message.content)
+        
+        async with AsyncSessionLocal() as session:
+            workflow = Workflow(goal=goal)
+            session.add(workflow)
+            await session.flush() # Get workflow ID
+            
+            created_tasks = []
+            for i, task_spec in enumerate(plan_data["tasks"]):
+                depends_on = []
+                if task_spec.get("depends_on_index") is not None:
+                    # Map index to actual task ID later or use sequential if simple
+                    # For now, let's store indices and resolve them in a second pass if needed, 
+                    # or just assume they depend on previously created IDs.
+                    idx = task_spec["depends_on_index"]
+                    if idx < len(created_tasks):
+                        depends_on = [created_tasks[idx].id]
+                
+                task = Task(
+                    workflow_id=workflow.id,
+                    task_type=task_spec["task_type"],
+                    tool_name=task_spec["tool_name"],
+                    input_data=task_spec["input_data"],
+                    status=TaskStatus.PENDING,
+                    depends_on=depends_on
+                )
+                session.add(task)
+                await session.flush()
+                created_tasks.append(task)
+                
+            await session.commit()
+            return workflow.id

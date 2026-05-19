@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Workflow Detail</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <a href="/" class="btn btn-sm btn-secondary mb-3">Back to Dashboard</a>
+        <h2>Workflow #{{ workflow.id }}</h2>
+        <p class="lead">{{ workflow.goal }}</p>
+
+        <div class="row">
+            {% for task in workflow.tasks %}
+            <div class="col-12 mb-3">
+                <div class="card shadow-sm border-{{ 'success' if task.status == 'completed' else 'warning' }}">
+                    <div class="card-header d-flex justify-content-between">
+                        <span><strong>{{ task.task_type }}</strong> ({{ task.tool_name }})</span>
+                        <span class="badge bg-{{ 'success' if task.status == 'completed' else 'warning' }}">{{ task.status }}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Input Data</h6>
+                                <pre class="bg-dark text-light p-2 rounded small">{{ task.input_data | tojson(indent=2) }}</pre>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Output Data</h6>
+                                <pre class="bg-dark text-light p-2 rounded small">{{ task.output_data | tojson(indent=2) if task.output_data else 'Pending...' }}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

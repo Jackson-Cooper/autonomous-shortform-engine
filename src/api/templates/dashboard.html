@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Autonomous Content Orchestrator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <h1 class="mb-4">Autonomous Content Orchestrator</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">New Goal</h5>
+                        <form action="/goal" method="post">
+                            <div class="mb-3">
+                                <input type="text" name="goal" class="form-control" placeholder="e.g. Generate and post 5 AI productivity shorts" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Start Workflow</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm text-center py-3">
+                    <h3>{{ workflow_count }}</h3>
+                    <p class="text-muted mb-0">Workflows</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm text-center py-3">
+                    <h3>{{ task_count }}</h3>
+                    <p class="text-muted mb-0">Tasks Executed</p>
+                </div>
+            </div>
+        </div>
+
+        <h3>Recent Workflows</h3>
+        <div class="table-responsive">
+            <table class="table table-white table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Goal</th>
+                        <th>Status</th>
+                        <th>Created At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in recent_workflows %}
+                    <tr>
+                        <td>{{ w.id }}</td>
+                        <td>{{ w.goal }}</td>
+                        <td><span class="badge bg-{{ 'success' if w.status == 'completed' else 'warning' }}">{{ w.status }}</span></td>
+                        <td>{{ w.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td><a href="/workflow/{{ w.id }}" class="btn btn-sm btn-outline-primary">Details</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
